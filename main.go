@@ -14,64 +14,46 @@ func main() {
 	if err != nil {
 		log.Fatal(err) // Stop the program if the file can't be opened
 	}
-	defer f.Close() // Make sure the file gets closed when we're done
 
-	str := "" // This will store characters until we reach a full line
+	lines := getLinesChannel(f)
+	for line := range lines {
+		fmt.Printf("read: %s\n", line)
+	}
 
-	for {
-		// Create a byte slice to read up to 8 bytes at a time
-		data := make([]byte, 8)
+}
 
-		// Read from the file into the data slice
-		n, err := f.Read(data)
+func getLinesChannel(f io.ReadCloser) <-chan string {
+	strChan := make(chan string)
 
-		if n > 0 {
-			// Trim the data slice to only the bytes that were read
-			data = data[:n]
+	go func() {
+		defer f.Close()
+		defer close(strChan)
 
-			// Loop in case there are multiple newlines in one chunk
-			for {
-				// Look for the position of a newline character '\n'
-				i := bytes.IndexByte(data, '\n')
+		str := ""
+		for {
+			data := make([]byte, 8)
+			n, err := f.Read(data)
 
-				if i == -1 {
-					// No newline found — just add everything to str
-					str += string(data)
-					break // exit inner loop, get next chunk
-				}
-
-				// Newline found — add up to it to str
-				str += string(data[:i])
-
-				// Print the full line we just built
-				fmt.Printf("read: %s\n", str)
-
-				// Reset str for the next line
-				str = ""
-
-				// Move data pointer to after the newline
-				data = data[i+1:]
-
-				// If no more data left after the newline, break the inner loop
-				if len(data) == 0 {
-					break
-				}
+			if err == io.EOF || err != nil {
+				break
 			}
+
+			data = data[:n]
+			if i := bytes.IndexByte(data, '\n'); i != -1 {
+				str += string(data[:i])
+				data = data[i+1:]
+				strChan <- str
+				str = ""
+			}
+
+			str += string(data)
+
 		}
 
-		// If we've reached the end of the file, stop the loop
-		if err == io.EOF {
-			break
+		if len(str) != 0 {
+			strChan <- str
 		}
 
-		// If another error happened, stop the program
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	// If there’s leftover text (i.e. the last line didn’t end with a newline), print it
-	if len(str) != 0 {
-		fmt.Printf("read: %s\n", str)
-	}
+	}()
+	return strChan
 }
