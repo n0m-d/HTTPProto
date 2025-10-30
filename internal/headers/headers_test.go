@@ -16,7 +16,7 @@ func TestHeader(t *testing.T) {
 	require.NotNil(t, headers)
 	assert.Equal(t, "localhost:42069", headers["Host"])
 	assert.Equal(t, 25, n)
-	assert.False(t, done)
+	assert.True(t, done)
 
 	// Test: Invalid spacing header
 	headers = NewHeaders()
