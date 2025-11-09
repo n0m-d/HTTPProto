@@ -3,6 +3,8 @@ package headers
 import (
 	"bytes"
 	"errors"
+	"regexp"
+	"strings"
 )
 
 type Headers map[string]string
@@ -11,6 +13,26 @@ var CRLF = []byte("\r\n")
 
 func NewHeaders() Headers {
 	return Headers{}
+}
+
+func (h Headers) Get(key string) string {
+	return h[strings.ToLower(key)]
+}
+
+func (h Headers) Set(key string, value string) {
+	h[strings.ToLower(key)] = value
+}
+
+func isvalidFieldName(str []byte) bool {
+	if len(str) == 0 {
+		return false
+	}
+	if bytes.ContainsAny(str, " \t") {
+		return false
+	}
+	pattern := `^[A-Za-z0-9!#$%&'*+\-.^_` + "`" + `|~]+$`
+	re := regexp.MustCompile(pattern)
+	return re.MatchString(string(str))
 }
 
 func parseHeader(fieldLine []byte) (string, string, error) {
@@ -45,7 +67,12 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 			return read, false, err
 		}
 		read += idx + len(CRLF)
-		h[key] = value
+
+		if !isvalidFieldName([]byte(key)) {
+			return 0, false, errors.New("malformed  header name")
+		}
+
+		h.Set(key, value)
 
 	}
 
