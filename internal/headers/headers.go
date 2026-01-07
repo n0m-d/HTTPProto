@@ -20,7 +20,12 @@ func (h Headers) Get(key string) string {
 }
 
 func (h Headers) Set(key string, value string) {
-	h[strings.ToLower(key)] = value
+	key = strings.ToLower(key)
+	if current, exists := h[key]; exists && current != "" {
+		h[key] = current + ", " + value
+	} else {
+		h[key] = value
+	}
 }
 
 func isvalidFieldName(str []byte) bool {

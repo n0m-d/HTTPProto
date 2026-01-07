@@ -4,16 +4,20 @@ import (
 	"bytes"
 	"errors"
 	"io"
+
+	"example.com/HProtocol/internal/headers"
 )
 
 const (
-	StateInit  parserState = "init"
-	StateDone  parserState = "done"
-	StateError parserState = "error"
+	StateInit    parserState = "init"
+	StateDone    parserState = "done"
+	StateError   parserState = "error"
+	StateHeaders parserState = "headers"
 )
 
 type Request struct {
 	RequestLine RequestLine
+	Headers     headers.Headers
 	state       parserState
 }
 
@@ -42,7 +46,8 @@ func (r *Request) error() bool {
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	request := &Request{
-		state: StateInit,
+		state:   StateInit,
+		Headers: headers.Headers{},
 	}
 	buff := make([]byte, 1024)
 	buffLen := 0
@@ -94,11 +99,25 @@ outer:
 
 			r.RequestLine = *rl
 			read += n
-
-			r.state = StateDone
+			r.state = StateHeaders
 
 		case StateDone:
 			break outer
+
+		case StateHeaders:
+			n, done, err := r.Headers.Parse(data[read:])
+			if err != nil {
+				return 0, err
+			}
+
+			if n == 0 {
+				break outer
+			}
+
+			read += n
+			if done {
+				r.state = StateDone
+			}
 		}
 	}
 	return read, nil
