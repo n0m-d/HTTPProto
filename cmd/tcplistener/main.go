@@ -24,6 +24,8 @@ func main() {
 		r, err := request.RequestFromReader(conn)
 		if err != nil {
 			log.Printf("Error: %v", err)
+			conn.Close()
+			continue
 		}
 
 		fmt.Println("Request line:")
@@ -36,6 +38,10 @@ func main() {
 			fmt.Printf("- %s: %s\n", header, value)
 		}
 
+		fmt.Println("Body:")
+		fmt.Println(string(r.Body))
+
+		conn.Close()
 	}
 
 }

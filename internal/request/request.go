@@ -134,7 +134,11 @@ outer:
 
 			read += n
 			if done {
-				r.state = StateBody
+				if parseHeaderInt(r.Headers, "content-length", 0) == 0 {
+					r.state = StateDone
+				} else {
+					r.state = StateBody
+				}
 			}
 
 		case StateBody:
