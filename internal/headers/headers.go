@@ -28,6 +28,11 @@ func (h Headers) Set(key string, value string) {
 	}
 }
 
+func (h Headers) Replace(key string, value string) {
+	key = strings.ToLower(key)
+	h[key] = value
+}
+
 func isvalidFieldName(str []byte) bool {
 	if len(str) == 0 {
 		return false

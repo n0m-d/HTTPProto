@@ -15,6 +15,49 @@ const (
 	StatusInternalServerError StatusCode = 500
 )
 
+type writerState int
+
+const (
+	writerStateStatusLine writerState = iota
+	writerStateHeaders
+	writerStateBody
+)
+
+type Writer struct {
+	writer io.Writer
+	state  writerState
+}
+
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{
+		writer: w,
+		state:  writerStateStatusLine, //First write the status line
+	}
+}
+
+func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
+	if w.state != writerStateStatusLine {
+		return fmt.Errorf("cannot write status line in state %d", w.state)
+	}
+	defer func() { w.state = writerStateHeaders }()
+	return WriteStatusLine(w.writer, statusCode)
+}
+
+func (w *Writer) WriteHeaders(headers headers.Headers) error {
+	if w.state != writerStateHeaders {
+		return fmt.Errorf("cannot write headers in state %d", w.state)
+	}
+	defer func() { w.state = writerStateBody }()
+	return WriteHeaders(w.writer, headers)
+}
+
+func (w *Writer) WriteBody(p []byte) (int, error) {
+	if w.state != writerStateBody {
+		return 0, fmt.Errorf("cannot write body in state %d", w.state)
+	}
+	return w.writer.Write(p)
+}
+
 func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 	reasonPhrase := ""
 	switch statusCode {
