@@ -48,6 +48,21 @@ func main() {
 			h.Replace("Content-Type", "text/html")
 			w.WriteHeaders(h)
 			w.WriteBody(body)
+
+		case "/video":
+			body, err := os.ReadFile("assets/vim.mp4")
+			if err != nil {
+				w.WriteStatusLine(response.StatusInternalServerError)
+				h := response.GetDefaultHeaders(len(body))
+				h.Replace("Content-Type", "video/mp4")
+				w.WriteHeaders(h)
+				w.WriteBody(body)
+			}
+			w.WriteStatusLine(response.StatusOK)
+			h := response.GetDefaultHeaders(len(body))
+			h.Replace("Content-Type", "video/mp4")
+			w.WriteHeaders(h)
+			w.WriteBody(body)
 		default:
 			body := []byte(`<html>
   <head>
