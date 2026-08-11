@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"example.com/HProtocol/internal/request"
@@ -13,8 +17,56 @@ import (
 
 const port = 42069
 
+func toHTTPBingoURL(path string) string {
+	return "https://httpbingo.org" + strings.TrimPrefix(path, "/httpbin")
+}
+
+func proxyHandler(w *response.Writer, req *request.Request) {
+	upstreamURL := toHTTPBingoURL(req.RequestLine.RequestTarget)
+	resp, err := http.Get(upstreamURL)
+	if err != nil {
+		w.WriteStatusLine(response.StatusInternalServerError)
+		body := []byte(err.Error())
+		h := response.GetDefaultHeaders(len(body))
+		w.WriteHeaders(h)
+		w.WriteBody(body)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.WriteStatusLine(response.StatusOK)
+	h := response.GetDefaultHeaders(0)
+	h.Delete("Content-Length")
+	h.Set("Transfer-Encoding", "chunked")
+	w.WriteHeaders(h)
+
+	buf := make([]byte, 1024)
+	for {
+		n, err := resp.Body.Read(buf)
+		fmt.Println("Read:", n)
+		if n > 0 {
+			_, writeErr := w.WriteChunkedBody(buf[:n])
+			if writeErr != nil {
+				return
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return
+		}
+	}
+	w.WriteChunkedBodyDone()
+}
+
 func main() {
 	handler := func(w *response.Writer, req *request.Request) {
+		if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin") {
+			proxyHandler(w, req)
+			return
+		}
+
 		switch req.RequestLine.RequestTarget {
 		case "/yourproblem":
 			body := []byte(`<html>
@@ -57,6 +109,7 @@ func main() {
 				h.Replace("Content-Type", "video/mp4")
 				w.WriteHeaders(h)
 				w.WriteBody(body)
+				return
 			}
 			w.WriteStatusLine(response.StatusOK)
 			h := response.GetDefaultHeaders(len(body))

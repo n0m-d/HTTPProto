@@ -33,6 +33,10 @@ func (h Headers) Replace(key string, value string) {
 	h[key] = value
 }
 
+func (h Headers) Delete(key string) {
+	delete(h, strings.ToLower(key))
+}
+
 func isvalidFieldName(str []byte) bool {
 	if len(str) == 0 {
 		return false
