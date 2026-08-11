@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"example.com/HProtocol/internal/headers"
 	"example.com/HProtocol/internal/request"
 	"example.com/HProtocol/internal/response"
 	"example.com/HProtocol/internal/server"
@@ -38,13 +40,16 @@ func proxyHandler(w *response.Writer, req *request.Request) {
 	h := response.GetDefaultHeaders(0)
 	h.Delete("Content-Length")
 	h.Set("Transfer-Encoding", "chunked")
+	h.Set("Trailer", "X-Content-SHA256, X-Content-Length")
 	w.WriteHeaders(h)
 
+	var fullBody []byte
 	buf := make([]byte, 1024)
 	for {
 		n, err := resp.Body.Read(buf)
 		fmt.Println("Read:", n)
 		if n > 0 {
+			fullBody = append(fullBody, buf[:n]...)
 			_, writeErr := w.WriteChunkedBody(buf[:n])
 			if writeErr != nil {
 				return
@@ -57,7 +62,12 @@ func proxyHandler(w *response.Writer, req *request.Request) {
 			return
 		}
 	}
-	w.WriteChunkedBodyDone()
+
+	hash := sha256.Sum256(fullBody)
+	trailers := headers.NewHeaders()
+	trailers.Set("X-Content-SHA256", fmt.Sprintf("%x", hash))
+	trailers.Set("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
+	w.WriteTrailers(trailers)
 }
 
 func main() {

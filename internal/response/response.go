@@ -89,6 +89,22 @@ func (w *Writer) WriteChunkedBodyDone() (int, error) {
 	return n, nil
 }
 
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	if w.state != writerStateBody && w.state != writerStateChunkedBody {
+		return fmt.Errorf("cannot write trailers in state %d", w.state)
+	}
+	_, err := w.writer.Write([]byte("0\r\n"))
+	if err != nil {
+		return err
+	}
+	err = WriteHeaders(w.writer, h)
+	if err != nil {
+		return err
+	}
+	w.state = writerStateBody
+	return nil
+}
+
 func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 	reasonPhrase := ""
 	switch statusCode {
